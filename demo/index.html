@@ -104,7 +104,7 @@
 
         var imageData = ctx.getImageData(0, 0, dst.width, dst.height);
         var src = imageData.data;
-        var data32 = new Uint32Array(src.buffer);
+        var data32 = new Uint8Array(src.buffer);
 
         var start = performance.now();
 

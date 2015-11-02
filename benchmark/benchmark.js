@@ -46,7 +46,7 @@ SAMPLES_SRC.forEach(function (sample) {
   content.width  = sample.width;
   content.height = sample.height;
   content.radius = sample.radius;
-  content.buffer = new Uint32Array(sample.width * sample.height);
+  content.buffer = new Uint8Array(sample.width * sample.height * 4);
 
   var title  = util.format('(%d bytes raw / [%dx%d]px)',
                            content.buffer.length, content.width, content.height);
