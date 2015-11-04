@@ -25,61 +25,59 @@ var gaussCoef = function (sigma) {
 
 function clampTo16(i) { return i < 0 ? 0 : (i > 65535 ? 65535 : i); }
 
+/*eslint-disable no-shadow*/
+var iir_tail = new Float32Array(4);
 
-var convolveMono16 = function (src, out, tmp, coeff, width, height) {
+
+function iir_tail_shift(iir_tail) {
+  iir_tail[3] = iir_tail[2];
+  iir_tail[2] = iir_tail[1];
+  iir_tail[1] = iir_tail[0];
+}
+
+
+var convolveMono16 = function (src, out, tmp, coeff, iir_tail, width, height) {
   var x, y, out_offs, in_offs, line_buf_offs;
-  var v, v0, v1, v2;
 
   var coeff_b0 = coeff[0];
   var coeff_a0 = coeff[1];
   var coeff_a1 = coeff[2];
   var coeff_a2 = coeff[3];
 
+  /*eslint-disable max-len*/
+
   for (y = 0; y < height; y++) {
     in_offs = y * width;
 
-    v = src[in_offs];
-    v0 = v;
-    v1 = v0;
-    v2 = v1;
+    iir_tail[1] = iir_tail[2] = iir_tail[3] = src[in_offs];
 
     line_buf_offs = 0;
 
     for (x = 0; x < width; x++) {
-      v = src[in_offs];
+
+      tmp[line_buf_offs] = iir_tail[0] = coeff_b0 * src[in_offs] + (coeff_a0 * iir_tail[1] + coeff_a1 * iir_tail[2] + coeff_a2 * iir_tail[3]);
 
       in_offs++;
-
-      v = coeff_b0 * v + (coeff_a0 * v0 + coeff_a1 * v1 + coeff_a2 * v2);
-
-      v2 = v1;
-      v1 = v0;
-      v0 = v;
-
-      tmp[line_buf_offs] = v;
-
       line_buf_offs++;
+
+      iir_tail_shift(iir_tail);
     }
 
-    v0 = v;
-    v1 = v0;
-    v2 = v1;
+    line_buf_offs--;
 
-    out_offs = y + height * width;
+    iir_tail[1] = iir_tail[2] = iir_tail[3] = tmp[line_buf_offs];
+
+    out_offs = y + height * (width - 1);
 
     for (x = width - 1; x >= 0; x--) {
+      iir_tail[0] = coeff_b0 * tmp[line_buf_offs] + (coeff_a0 * iir_tail[1] + coeff_a1 * iir_tail[2] + coeff_a2 * iir_tail[3]);
+
+      out[out_offs] = clampTo16((iir_tail[0] + 0.5) |0);
+
+      iir_tail_shift(iir_tail);
+
       line_buf_offs--;
-
-      v = tmp[line_buf_offs];
-      v = coeff_b0 * v + (coeff_a0 * v0 + coeff_a1 * v1 + coeff_a2 * v2);
-
-      v2 = v1;
-      v1 = v0;
-      v0 = v;
-
       out_offs -= height;
-
-      out[out_offs] = clampTo16((v + 0.5) |0);
     }
   }
 };
@@ -94,8 +92,8 @@ var blurMono16 = function (src, width, height, radius) {
 
   var coeff = gaussCoef(radius);
 
-  convolveMono16(src, out, tmp_line, coeff, width, height, radius);
-  convolveMono16(out, src, tmp_line, coeff, height, width, radius);
+  convolveMono16(src, out, tmp_line, coeff, iir_tail, width, height, radius);
+  convolveMono16(out, src, tmp_line, coeff, iir_tail, height, width, radius);
 };
 
 module.exports = blurMono16;
